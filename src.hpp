@@ -22,7 +22,7 @@ private:
     Vec v_cur;
     double v_max, r;
     Monitor *monitor;
-    int stagnant = 0, escape_left = 0;
+    int stagnant = 0, escape_left = 0, parked = 0;
     double best_distance = 1e100;
     Vec escape_direction;
 
@@ -59,6 +59,20 @@ public:
     Vec get_v_next() {
         Vec goal = pos_tar - pos_cur;
         double distance_to_goal = goal.norm();
+        bool crowded = false;
+        if (distance_to_goal < 0.009) {
+            for (int j = 0; j < monitor->get_robot_number(); ++j) {
+                if (j == id) continue;
+                double clearance = (pos_cur - monitor->get_pos_cur(j)).norm() - r - monitor->get_r(j);
+                if (clearance < std::max(0.1, r * 0.1) && square(monitor->get_v_cur(j)) < 1e-4)
+                    crowded = true;
+            }
+        }
+        parked = crowded ? parked + 1 : 0;
+        if (parked > 300 + id * 17) {
+            stagnant = 81;
+            parked = 0;
+        }
         if (distance_to_goal < best_distance - std::max(0.002, v_max * TIME_INTERVAL * 0.05)) {
             best_distance = distance_to_goal;
             stagnant = 0;
